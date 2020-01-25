@@ -64,7 +64,7 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
     try {
       await deleteTodo(this.props.auth.getIdToken(), todoId)
       this.setState({
-        todos: this.state.todos.filter(todo => todo.todoId != todoId)
+        todos: this.state.todos.filter(todo => todo.todoId !== todoId)
       })
     } catch {
       alert('Todo deletion failed')
@@ -159,7 +159,7 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
   renderTodosList() {
     return (
       <Grid padded>
-        {this.state.todos.map((todo, pos) => {
+        {(this.state.todos && this.state.todos.length > 0) ? this.state.todos.map((todo, pos) => {
           return (
             <Grid.Row key={todo.todoId}>
               <Grid.Column width={1} verticalAlign="middle">
@@ -200,7 +200,7 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
               </Grid.Column>
             </Grid.Row>
           )
-        })}
+        }) : <h3>There are currently no Todos.</h3>}
       </Grid>
     )
   }

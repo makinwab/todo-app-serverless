@@ -16,7 +16,7 @@ provider:
   region: ${opt:region, 'us-east-2'}
 
   environment:
-    TODOS_TABLE: Todos-${self:provider.stage}
+    TODOS_TABLE: Todos-v2-${self:provider.stage}
 
 custom:
   documentation:
@@ -41,10 +41,17 @@ functions:
   # TODO: Configure this function
   GetTodos:
     handler: src/lambda/http/getTodos.handler
+    iamRoleStatementsName: get-todos-function-role
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     events:
       - http:
           method: get
           path: todos
+          cors: true
+          authorizer: Auth
 
   # TODO: Configure this function
   CreateTodo:
@@ -52,8 +59,7 @@ functions:
     iamRoleStatementsName: create-todo-function-role #optional custom role name setting instead of the default generated one
     iamRoleStatements:
       - Effect: Allow
-        Action:
-          - dynamodb:PutItem
+        Action: dynamodb:PutItem
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     events:
       - http:
@@ -94,16 +100,19 @@ functions:
 
 resources:
   Resources:
-    # TODO: Add any necessary AWS resources
     TodosDynamoDBTable:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
           - AttributeName: todoId
             AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
         KeySchema:
-          - AttributeName: todoId
+          - AttributeName: userId
             KeyType: HASH
+          - AttributeName: todoId
+            KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.TODOS_TABLE}
     RequestBodyValidator:
