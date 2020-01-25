@@ -1,9 +1,10 @@
 service:
-  name: serverless-todo-app
+  name: todo-app-serverless
 
 plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
+  - serverless-reqvalidator-plugin
 
 provider:
   name: aws
@@ -33,6 +34,7 @@ functions:
       - http:
           method: post
           path: todos
+          reqValidatorName: 'createTodosValidator'
 
   # TODO: Configure this function
   UpdateTodo:
@@ -61,3 +63,17 @@ functions:
 resources:
   Resources:
     # TODO: Add any necessary AWS resources
+    xMyRequestValidator:
+      Type: "AWS::ApiGateway::RequestValidator"
+      Properties:
+        Name: 'create-todos-validator'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
+  Outputs:
+    xMyRequestValidator:
+      Value:
+        Ref: create-todos-validator
+      Export:
+        Name: createTodosValidator
