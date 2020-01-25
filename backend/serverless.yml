@@ -1,3 +1,5 @@
+org: makinwa37
+app: todo-app-serverless-app
 service:
   name: todo-app-serverless
 
@@ -8,10 +10,28 @@ plugins:
 
 provider:
   name: aws
-  runtime: nodejs8.10
+  runtime: nodejs12.x
 
   stage: ${opt:stage, 'dev'}
-  region: ${opt:region, 'us-east-1'}
+  region: ${opt:region, 'us-east-2'}
+
+  environment:
+    TODOS_TABLE: Todos-${self:provider.stage}
+
+custom:
+  documentation:
+    api:
+      info:
+        version: '1.0.0'
+        title: Todo API
+        description: Todo app API
+      tags:
+        - name: Todos
+          description: Todo Management
+    models:
+      - name: CreateTodoRequest
+        contentType: "application/json"
+        schema: ${file(src/models/create-todo-request.json)}
 
 functions:
 
@@ -27,14 +47,26 @@ functions:
           path: todos
 
   # TODO: Configure this function
-  GetTodos:
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
+    iamRoleStatementsName: create-todo-function-role #optional custom role name setting instead of the default generated one
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     events:
       - http:
           method: post
           path: todos
-          reqValidatorName: 'createTodosValidator'
+          cors: true
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Create a new Todo
+            description: Create a new Todo
+            requestModels:
+              'application/json': CreateTodoRequest
 
   # TODO: Configure this function
   UpdateTodo:
@@ -63,17 +95,32 @@ functions:
 resources:
   Resources:
     # TODO: Add any necessary AWS resources
-    xMyRequestValidator:
-      Type: "AWS::ApiGateway::RequestValidator"
+    TodosDynamoDBTable:
+      Type: AWS::DynamoDB::Table
       Properties:
-        Name: 'create-todos-validator'
+        AttributeDefinitions:
+          - AttributeName: todoId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: todoId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.TODOS_TABLE}
+    RequestBodyValidator:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: 'request-body-validator'
         RestApiId:
           Ref: ApiGatewayRestApi
         ValidateRequestBody: true
         ValidateRequestParameters: false
-  Outputs:
-    xMyRequestValidator:
-      Value:
-        Ref: create-todos-validator
-      Export:
-        Name: createTodosValidator
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+          gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: ApiGatewayRestApi
