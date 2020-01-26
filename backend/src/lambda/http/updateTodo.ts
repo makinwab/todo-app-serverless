@@ -5,7 +5,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } f
 import { UpdateTodoRequest } from '../../requests/UpdateTodoRequest'
 import { createLogger } from '../../utils/logger'
 import * as AWS from 'aws-sdk'
-import { getUserId } from '../utils'
+import { getUserId, todoExists } from '../utils'
 
 const docClient = new AWS.DynamoDB.DocumentClient()
 const todosTable = process.env.TODOS_TABLE
@@ -15,6 +15,21 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
 
   const userId = getUserId(event)
   const todoId = event.pathParameters.todoId
+  const validTodo = await todoExists(todoId, userId)
+
+  if (!validTodo) {
+    return {
+      statusCode: 404,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      },
+      body: JSON.stringify({
+        error: 'Todo does not exist'
+      })
+    }
+  }
+
   const payload: UpdateTodoRequest = JSON.parse(event.body)
 
   await updateTodo(todoId, userId, payload)
