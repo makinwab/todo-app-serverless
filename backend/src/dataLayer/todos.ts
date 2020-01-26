@@ -57,6 +57,20 @@ export class Todo {
     }).promise()
   }
 
+  async updateTodoAttachment(todoId: string, userId: string, attachmentUrl: string): Promise<void> {
+    await this.docClient.update({
+      TableName: this.todosTable,
+      Key: {
+        todoId,
+        userId
+      },
+      UpdateExpression: 'SET attachmentUrl = :attachment',
+      ExpressionAttributeValues: {
+        ':attachment': attachmentUrl
+      }
+    }).promise()
+  }
+
   async deleteTodo(todoId: string, userId: string): Promise<void> {
     try {
       await this.docClient.delete({

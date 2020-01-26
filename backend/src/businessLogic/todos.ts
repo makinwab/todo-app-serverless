@@ -50,10 +50,21 @@ export async function todoExists(todoId: string, userId: string) {
   return !!item
 }
 
-export function getUploadUrl(todoId: string) {
-  return s3.getSignedUrl('putObject', {
+export async function getUploadUrl(todoId: string, userId: string) {
+  const signedUrl = s3.getSignedUrl('putObject', {
     Bucket: bucketName,
     Key: todoId,
     Expires: urlExpiration
   })
+
+  if (signedUrl) {
+    await addAttachmentUrl(bucketName, todoId, userId)
+    return signedUrl
+  }
+}
+
+async function addAttachmentUrl(bucketName, todoId, userId) {
+  const attachmentUrl = `https://${bucketName}.s3.amazonaws.com/${todoId}`
+
+  await todo.updateTodoAttachment(todoId, userId, attachmentUrl)
 }
