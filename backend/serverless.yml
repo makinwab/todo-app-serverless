@@ -8,6 +8,9 @@ plugins:
   - serverless-iam-roles-per-function
   - serverless-reqvalidator-plugin
 
+# package:
+  # individually: true
+
 provider:
   name: aws
   runtime: nodejs12.x
@@ -17,6 +20,8 @@ provider:
 
   environment:
     TODOS_TABLE: Todos-v2-${self:provider.stage}
+    TODOS_S3_BUCKET: serverless-todo-attachment-${self:provider.stage}
+    SIGNED_URL_EXPIRATION: 300
 
 custom:
   documentation:
@@ -46,7 +51,9 @@ functions:
     iamRoleStatementsName: get-todos-function-role
     iamRoleStatements:
       - Effect: Allow
-        Action: dynamodb:Query
+        Action:
+          - dynamodb:Query
+          - dynamodb:GetItem
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     events:
       - http:
@@ -80,7 +87,9 @@ functions:
     iamRoleStatementsName: update-todo-function-role
     iamRoleStatements:
       - Effect: Allow
-        Action: dynamodb:UpdateItem
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     events:
       - http:
@@ -111,7 +120,9 @@ functions:
     iamRoleStatementsName: delete-todo-function-role
     iamRoleStatements:
       - Effect: Allow
-        Action: dynamodb:DeleteItem
+        Action:
+          - dynamodb:DeleteItem
+          - dynamodb:GetItem
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     events:
       - http:
@@ -120,13 +131,22 @@ functions:
           cors: true
           authorizer: Auth
 
-  # TODO: Configure this function
   GenerateUploadUrl:
     handler: src/lambda/http/generateUploadUrl.handler
+    iamRoleStatementsName: generate-upload-url-role
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+      - Effect: Allow
+        Action: s3:PutObject
+        Resource: arn:aws:s3:::${self:provider.environment.TODOS_S3_BUCKET}/*
     events:
       - http:
           method: post
           path: todos/{todoId}/attachment
+          cors: true
+          authorizer: Auth
 
 resources:
   Resources:
@@ -163,3 +183,34 @@ resources:
         ResponseType: DEFAULT_4XX
         RestApiId:
           Ref: ApiGatewayRestApi
+    AttachmentsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.TODOS_S3_BUCKET}
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+    BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        PolicyDocument:
+          Id: MyPolicy
+          Version: "2012-10-17"
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: 'arn:aws:s3:::${self:provider.environment.TODOS_S3_BUCKET}/*'
+        Bucket: !Ref AttachmentsBucket
