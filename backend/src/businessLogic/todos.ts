@@ -1,16 +1,18 @@
 import * as uuid from 'uuid'
+import * as AWS from 'aws-sdk'
+import * as AWSXRay from 'aws-xray-sdk'
 
 import { TodoItem } from '../models/TodoItem'
 import { Todo } from '../dataLayer/todos'
 import { CreateTodoRequest } from '../requests/CreateTodoRequest'
 import { UpdateTodoRequest } from '../requests/UpdateTodoRequest'
-import * as AWS from 'aws-sdk'
 
-const s3 = new AWS.S3({
+const XAWS = AWSXRay.captureAWS(AWS)
+const s3 = new XAWS.S3({
   signatureVersion: 'v4'
 })
 const bucketName = process.env.TODOS_S3_BUCKET
-const urlExpiration = process.env.SIGNED_URL_EXPIRATION
+const urlExpiration: number = 300
 
 const todo = new Todo()
 
