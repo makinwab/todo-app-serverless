@@ -32,13 +32,15 @@ custom:
       - name: CreateTodoRequest
         contentType: "application/json"
         schema: ${file(src/models/create-todo-request.json)}
+      - name: UpdateTodoRequest
+        contentType: "application/json"
+        schema: ${file(src/models/update-todo-request.json)}
 
 functions:
 
   Auth:
     handler: src/lambda/auth/auth0Authorizer.handler
 
-  # TODO: Configure this function
   GetTodos:
     handler: src/lambda/http/getTodos.handler
     iamRoleStatementsName: get-todos-function-role
@@ -53,10 +55,9 @@ functions:
           cors: true
           authorizer: Auth
 
-  # TODO: Configure this function
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
-    iamRoleStatementsName: create-todo-function-role #optional custom role name setting instead of the default generated one
+    iamRoleStatementsName: create-todo-function-role
     iamRoleStatements:
       - Effect: Allow
         Action: dynamodb:PutItem
@@ -74,13 +75,36 @@ functions:
             requestModels:
               'application/json': CreateTodoRequest
 
-  # TODO: Configure this function
   UpdateTodo:
     handler: src/lambda/http/updateTodo.handler
+    iamRoleStatementsName: update-todo-function-role
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:UpdateItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     events:
       - http:
           method: patch
           path: todos/{todoId}
+          cors: true
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Update a Todo
+            description: Update a Todo
+            requestModels:
+              'application/json': UpdateTodoRequest
+      - http:
+          method: put
+          path: todos/{todoId}
+          cors: true
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Update a Todo
+            description: Update a Todo
+            requestModels:
+              'application/json': UpdateTodoRequest
 
   # TODO: Configure this function
   DeleteTodo:
